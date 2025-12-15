@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+sqlmodel
+python-dotenv
+google-auth
+google-auth-oauthlib
+google-api-python-client
+groq
+requests
+pydantic
+pydantic-settings
+pyjwt
+passlib[bcrypt]
+python-multipart
+notion-client
+apscheduler
