@@ -13,6 +13,13 @@ async def lifespan(app: FastAPI):
     init_db()
     # Startup: Initialize the scheduler
     start_scheduler()
+    
+    # Log all registered routes for debugging
+    print("--- REGISTERED ROUTES ---")
+    for route in app.routes:
+        print(f"{route.path} [{route.name}]")
+    print("-------------------------")
+
     yield
     # Shutdown logic
     stop_scheduler()
