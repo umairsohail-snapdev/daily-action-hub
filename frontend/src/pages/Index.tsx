@@ -70,6 +70,8 @@ const Index = () => {
               : meeting
           )
         );
+        // Note: Today's Dashboard resolution status is usually calculated on the fly or just the list view.
+        // If we displayed a "Today Resolved" badge, we'd need to update a state for it too.
     } catch (error) {
         showError("Failed to update status");
     }
@@ -98,11 +100,9 @@ const Index = () => {
     try {
         await api.updateActionItem(actionId, { isCompleted });
         setDashboards(prevDashboards =>
-          prevDashboards.map(dashboard =>
-            dashboard.date === dashboardDate
-              ? {
-                  ...dashboard,
-                  meetings: dashboard.meetings.map(meeting =>
+          prevDashboards.map(dashboard => {
+            if (dashboard.date === dashboardDate) {
+                const updatedMeetings = dashboard.meetings.map(meeting =>
                     meeting.id === meetingId
                       ? {
                           ...meeting,
@@ -111,10 +111,28 @@ const Index = () => {
                           ),
                         }
                       : meeting
-                  ),
+                  );
+                
+                // Recalculate resolution status
+                let isResolved = true;
+                for (const m of updatedMeetings) {
+                    for (const item of m.actionItems) {
+                        if (!item.isCompleted) {
+                            isResolved = false;
+                            break;
+                        }
+                    }
+                    if (!isResolved) break;
                 }
-              : dashboard
-          )
+
+                return {
+                  ...dashboard,
+                  meetings: updatedMeetings,
+                  isResolved: isResolved
+                };
+            }
+            return dashboard;
+          })
         );
     } catch (error) {
         showError("Failed to update status");
@@ -179,9 +197,32 @@ const Index = () => {
           ),
         }));
 
+      // Function to recalculate resolution status
+      const recalculateResolution = (dashboard: DailyDashboard, updatedMeetings: Meeting[]): boolean => {
+          let resolved = true;
+          for (const m of updatedMeetings) {
+              for (const item of m.actionItems) {
+                  if (!item.isCompleted) {
+                      resolved = false;
+                      break;
+                  }
+              }
+              if (!resolved) break;
+          }
+          return resolved;
+      };
+
       // Optimistically update both today's meetings and history
       setMeetings(prev => updateMeetings(prev));
-      setDashboards(prev => prev.map(d => ({ ...d, meetings: updateMeetings(d.meetings) })));
+      
+      setDashboards(prev => prev.map(d => {
+          const newMeetings = updateMeetings(d.meetings);
+          return {
+              ...d,
+              meetings: newMeetings,
+              isResolved: recalculateResolution(d, newMeetings) // Recalculate status immediately
+          };
+      }));
 
       // Let the component handle the link opening via returned value
       showSuccess("Action executed successfully!");

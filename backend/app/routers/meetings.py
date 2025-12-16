@@ -11,7 +11,7 @@ from ..models import User, Meeting, ActionItem, ActionType, MeetingRead
 from ..auth import get_current_user
 from ..services.ai import AIService
 from ..services.content_providers.factory import ContentProviderFactory
-from notion_client import Client
+from ..services.content_providers.notion import NotionProvider
 from ..config import settings
 
 from ..services.calendar import CalendarService
@@ -79,11 +79,17 @@ def sync_calendar_meetings(
             session.add(g_meeting)
             synced_meetings.append(g_meeting)
     
-    # Handle Deletions: Remove local meetings for today that are no longer in Google Calendar
-    # Define "Today" window matching CalendarService (UTC)
+    # Handle Deletions: Remove local meetings for the synced window
+    # Must match the expanded window in CalendarService to avoid accidental deletions
     now = datetime.utcnow()
-    time_min = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    time_max = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    from datetime import timedelta
+    utc_today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    time_min = (utc_today_start - timedelta(days=1))
+    time_max = (utc_today_end + timedelta(days=1))
+
+    print(f"DEBUG: Checking for deletions in window: {time_min} to {time_max}")
 
     statement = select(Meeting).where(
         Meeting.user_id == current_user.id,
@@ -92,9 +98,11 @@ def sync_calendar_meetings(
         Meeting.google_event_id != None # Only consider synced meetings
     )
     local_meetings = session.exec(statement).all()
+    print(f"DEBUG: Found {len(local_meetings)} local meetings in this window.")
 
     for meeting in local_meetings:
         if meeting.google_event_id not in fetched_google_ids:
+            print(f"DEBUG: Deleting orphan meeting {meeting.id} ({meeting.title}) because Google ID {meeting.google_event_id} was not returned.")
             # Delete associated action items first to avoid integrity errors
             # Or rely on cascade delete if configured (it seems it's not)
             # We must manually delete the meeting, which should cascade if SQLModel relationship is set up right
@@ -139,7 +147,7 @@ def process_meeting(
         meeting_date = meeting.start_time.date().isoformat()
         
         for provider in providers:
-            fetched_content = provider.fetch_content(meeting.title, meeting_date)
+            fetched_content = provider.fetch_content(current_user, meeting.title, meeting_date)
             if fetched_content:
                 meeting_content = fetched_content
                 break
@@ -183,86 +191,23 @@ def fetch_meeting_notes(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    # 1. Get Meeting
-    statement = select(Meeting).where(Meeting.id == meeting_id, Meeting.user_id == current_user.id)
-    meeting = session.exec(statement).first()
-
-    if not meeting:
+    meeting = session.get(Meeting, meeting_id)
+    if not meeting or meeting.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    # 2. Setup Credentials
-    notion_api_key = settings.NOTION_API_KEY.strip() if settings.NOTION_API_KEY else None
-    database_id = settings.NOTION_DATABASE_ID.strip() if settings.NOTION_DATABASE_ID else None
-
-    if not notion_api_key or not database_id:
-        return {"notes": "", "error": "Notion API Key or DB ID missing."}
-
-    # 3. Prepare Direct Request
-    headers = {
-        "Authorization": f"Bearer {notion_api_key}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
-    }
+    provider_name = "notion" # This could be dynamic in the future
+    providers = ContentProviderFactory.get_providers()
+    provider = next((p for p in providers if isinstance(p, NotionProvider)), None)
     
-    # 4. Query Database (Find the page)
-    search_title = meeting.title.strip()
-    print(f"DEBUG: Searching Notion DB {database_id} for: '{search_title}'")
+    if not provider:
+        raise HTTPException(status_code=500, detail="Notion provider not found")
+
+    notes = provider.fetch_content(current_user, meeting.title, meeting.start_time.isoformat())
     
-    query_url = f"https://api.notion.com/v1/databases/{database_id}/query"
-    payload = {
-        "filter": {
-            "property": "Task Name", # Verified verified property name
-            "title": { "contains": search_title }
-        }
-    }
+    if not notes:
+        return {"notes": ""}
     
-    try:
-        response = requests.post(query_url, headers=headers, json=payload)
-        
-        if response.status_code != 200:
-            print(f"ERROR: Notion Query Failed {response.status_code}: {response.text}")
-            return {"notes": "", "error": f"Notion Error: {response.text}"}
-            
-        data = response.json()
-        results = data.get("results", [])
-        
-        if not results:
-            print("DEBUG: No matching page found.")
-            return {"notes": ""}
-
-        # 5. Fetch Content (Get blocks from the page)
-        page_id = results[0]["id"]
-        print(f"DEBUG: Found page {page_id}. Fetching blocks...")
-        
-        blocks_url = f"https://api.notion.com/v1/blocks/{page_id}/children"
-        blocks_response = requests.get(blocks_url, headers=headers)
-        
-        if blocks_response.status_code != 200:
-             return {"notes": "", "error": "Failed to fetch page blocks"}
-             
-        blocks_data = blocks_response.json()
-        
-        text_content = []
-        for block in blocks_data.get("results", []):
-            b_type = block.get("type")
-            if b_type in block:
-                rich_text = block[b_type].get("rich_text", [])
-                plain_text = "".join([t.get("plain_text", "") for t in rich_text])
-                
-                if plain_text:
-                    if "heading" in b_type:
-                        text_content.append(f"\n## {plain_text}")
-                    elif "bullet" in b_type:
-                        text_content.append(f"* {plain_text}")
-                    else:
-                        text_content.append(plain_text)
-
-        final_notes = "\n".join(text_content)
-        return {"notes": final_notes}
-
-    except Exception as e:
-        print(f"ERROR: Notion Fetch Exception: {e}")
-        return {"notes": "", "error": str(e)}
+    return {"notes": notes}
 
 @router.post("/{meeting_id}/analyze", response_model=MeetingRead)
 def analyze_meeting(

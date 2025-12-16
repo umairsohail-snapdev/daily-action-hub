@@ -18,9 +18,18 @@ class GmailExecutor(ActionExecutor):
         # 1. Extract recipient from description if available
         recipient = action_data.get("recipient", "")
         if not recipient:
-            email_match = re.search(r'[\w\.-]+@[\w\.-]+', description)
-            if email_match:
-                recipient = email_match.group(0)
+            # 1. Try to find explicit "to X" or "at X" email pattern
+            # Matches "to test@example.com" or "at test@example.com"
+            explicit_match = re.search(r'(?:to|at)\s+([\w\.-]+@[\w\.-]+)', description, re.IGNORECASE)
+            if explicit_match:
+                recipient = explicit_match.group(1)
+            else:
+                # 2. Fallback: Find *any* email in the description
+                # But careful not to pick up the user's own email if it accidentally got into the description
+                # (Though the AI prompt fix should prevent that)
+                email_match = re.search(r'[\w\.-]+@[\w\.-]+', description)
+                if email_match:
+                    recipient = email_match.group(0)
 
         # 2. Format Body
         meeting_title = action_data.get("meeting_title", "our meeting")

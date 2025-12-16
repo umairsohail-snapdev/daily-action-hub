@@ -50,7 +50,16 @@ export const api = {
   },
 
   getTodaysDashboard: async (): Promise<DailyDashboard> => {
-    const response = await fetch(`${API_BASE_URL}/dashboard/today`, {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const params = new URLSearchParams({
+        time_min: startOfDay.toISOString(),
+        time_max: endOfDay.toISOString()
+    });
+
+    const response = await fetch(`${API_BASE_URL}/dashboard/today?${params.toString()}`, {
       headers: headers(),
     });
     if (!response.ok) throw new Error("Failed to fetch dashboard");
@@ -190,35 +199,13 @@ export const api = {
     if (!response.ok) throw new Error("Failed to update settings");
   },
 
-  signup: async (email: string, password: string, name?: string): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password, name }),
+  saveNotionCredentials: async (apiKey: string, databaseId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/auth/notion/save_credentials`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ api_key: apiKey, database_id: databaseId })
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Signup failed");
-    }
-    return await response.json();
-  },
-
-  login: async (email: string, password: string): Promise<any> => {
-    const formData = new FormData();
-    formData.append("username", email);
-    formData.append("password", password);
-
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Login failed");
-    }
-    return await response.json();
+    if (!response.ok) throw new Error("Failed to save Notion credentials");
   },
 
   googleLogin: async (token: string): Promise<any> => {

@@ -28,7 +28,7 @@ class AIService:
         1. Provide a concise summary of the meeting.
         2. Extract explicit Next Steps. Return a JSON object with a key "action_items" containing a list. Each item must have:
            - "action_type": (One of: "Send Email", "Create Calendar Invite", "Create Task", "Add to Obsidian")
-           - "description": (Clear summary of what to do)
+           - "description": (Clear summary of what to do. DO NOT include the assignee's name or email in the description. Just the task.)
            - "assignee": (Name of the person responsible, or "Me" if unclear)
         
         Return the result in JSON format:

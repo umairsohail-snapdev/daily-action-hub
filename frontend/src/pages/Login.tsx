@@ -1,32 +1,16 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar, Loader2 } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { api } from "@/lib/api";
-
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const API_BASE_URL = "http://localhost:8000";
-
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-  });
 
   useEffect(() => {
     // Handle URL parameters (backend code flow - future proofing)
@@ -88,25 +72,9 @@ const Login = () => {
     }
   }, [searchParams, navigate]);
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    try {
-      const response = await api.login(data.email, data.password);
-      localStorage.setItem("jwt_token", response.access_token);
-      showSuccess("Successfully logged in!");
-      navigate("/");
-    } catch (error: any) {
-      showError(error.message || "Invalid email or password");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleGoogleLogin = () => {
     window.location.href = `${API_BASE_URL}/auth/login`;
   };
-
-  const [showEmailForm, setShowEmailForm] = useState(false);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50/50">
@@ -131,48 +99,12 @@ const Login = () => {
             <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true"><path d="M12.0003 20.45c4.6593 0 8.364-3.5346 8.364-7.8596 0-0.638-.0697-1.251-.195-1.8406H12.0003v3.481h4.6936C16.4862 15.342 14.4758 16.8906 12.0003 16.8906c-2.8596 0-5.2766-2.122-5.992-4.9666l-3.666 2.781C3.805 17.606 7.5913 20.45 12.0003 20.45z" fill="#34A853"></path><path d="M12.0003 7.1094c2.2536 0 4.1627 1.0256 5.378 2.5936l2.6036-2.553C18.2323 5.3096 15.3996 3.55 12.0003 3.55 7.5913 3.55 3.805 6.394 2.3423 10.294l3.666 2.781C6.7237 10.1846 9.1407 8.0626 12.0003 7.1094z" fill="#EA4335"></path><path d="M6.0083 13.075c-.1796-.583-.2846-1.199-.2846-1.84 0-0.641.105-1.257.2846-1.84l-3.666-2.781C1.637 8.4456 1.156 10.25 1.156 12.195c0 1.945.481 3.7494 1.3253 5.561l3.666-2.781c-.3587-1.125-.561-2.316-.561-3.54z" fill="#FBBC05"></path><path d="M2.3423 10.294L6.0083 13.075c.7154-2.8446 3.1324-4.9666 5.992-4.9666 2.2536 0 4.1627 1.0256 5.378 2.5936l2.6036-2.553C18.2323 5.3096 15.3996 3.55 12.0003 3.55 7.5913 3.55 3.805 6.394 2.3423 10.294z" fill="#4285F4"></path></svg>
             Continue with Google
           </Button>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground cursor-pointer hover:text-primary" onClick={() => setShowEmailForm(!showEmailForm)}>
-                {showEmailForm ? "Hide options" : "Or use email"}
-              </span>
-            </div>
-          </div>
-
-          {showEmailForm && (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="name@example.com" {...register("email")} disabled={isLoading} />
-                {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                </div>
-                <Input id="password" type="password" {...register("password")} disabled={isLoading} />
-                {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-              </div>
-              <Button type="submit" variant="secondary" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log in with Email"}
-              </Button>
-              <div className="text-center text-sm text-muted-foreground mt-2">
-                Don't have an account? <Link to="/signup" className="text-primary hover:underline font-medium">Sign up</Link>
-              </div>
-            </form>
-          )}
         </CardContent>
-        {!showEmailForm && (
-            <CardFooter className="flex justify-center pb-6">
-                <p className="text-xs text-center text-muted-foreground">
-                    By clicking continue, you agree to our <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>.
-                </p>
-            </CardFooter>
-        )}
+        <CardFooter className="flex justify-center pb-6">
+            <p className="text-xs text-center text-muted-foreground">
+                By clicking continue, you agree to our <a href="#" className="underline">Terms of Service</a> and <a href="#" className="underline">Privacy Policy</a>.
+            </p>
+        </CardFooter>
       </Card>
     </div>
   );

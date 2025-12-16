@@ -64,9 +64,11 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 # AI Provider
 GROQ_API_KEY=your_groq_api_key
 
-# Notion Integration (Optional if using OAuth flow, required for manual dev)
-NOTION_CLIENT_ID=your_notion_client_id
-NOTION_CLIENT_SECRET=your_notion_client_secret
+# Notion Integration
+# Get your API Key from: https://www.notion.so/my-integrations
+NOTION_API_KEY=your_internal_integration_token
+# The ID of the database you want to sync with
+NOTION_DATABASE_ID=your_database_id
 ```
 
 **Run Database Migrations:**

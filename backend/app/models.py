@@ -31,8 +31,6 @@ class User(SQLModel, table=True):
     notification_preferences: Optional[str] = Field(default='{"dailyBrief": true, "unresolvedReminders": false}') # JSON string
     
     # OAuth Tokens
-    notion_access_token: Optional[str] = None
-    notion_bot_id: Optional[str] = None
     
     meetings: List["Meeting"] = Relationship(back_populates="user")
 

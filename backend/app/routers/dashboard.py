@@ -101,16 +101,22 @@ def sync_meetings(
 
 @router.get("/today", response_model=DashboardResponse)
 def get_todays_dashboard(
+    time_min: Optional[datetime] = None,
+    time_max: Optional[datetime] = None,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
     Get the dashboard data for today.
     """
-    # Broaden the window to handle timezones (yesterday + today + tomorrow UTC)
-    now_utc = datetime.utcnow()
-    window_start = (now_utc - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    window_end = (now_utc + timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+    if time_min and time_max:
+        window_start = time_min
+        window_end = time_max
+    else:
+        # Fallback to server UTC day if not provided
+        now_utc = datetime.utcnow()
+        window_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        window_end = now_utc.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     statement = select(Meeting).options(selectinload(Meeting.action_items)).where(
         Meeting.user_id == current_user.id,
@@ -121,25 +127,26 @@ def get_todays_dashboard(
     meetings = session.exec(statement).all()
     
     # Calculate if resolved (all action items completed)
-    # This logic assumes a dashboard is resolved if all meetings have their action items completed
-    # For MVP, let's keep it simple.
+    # A dashboard is resolved if all action items across all meetings are completed.
+    # If there are NO meetings, it is resolved.
+    # If there are meetings but NO action items, it is resolved.
     
     is_resolved = True
+    has_action_items = False
     meetings_data = []
     
     for meeting in meetings:
-        # Load action items
-        # Since we used SQLModel with Relationship, they should be lazy loaded or we can eager load
-        # But here accessing meeting.action_items should trigger a fetch if attached to session
-        # However, async session handling might need explicit loading. 
-        # With sync engine/session in database.py, lazy loading works within the session context.
+        meetings_data.append(meeting)
         
         # Check for unresolved items
         for item in meeting.action_items:
+            has_action_items = True
             if not item.is_completed:
                 is_resolved = False
-        
-        meetings_data.append(meeting)
+    
+    # If we have action items and none are incomplete, it's resolved.
+    # If we have no action items at all, it's resolved (nothing to do).
+    # Logic holds: is_resolved starts True, only flips to False if an incomplete item is found.
 
     return {
         "date": date.today().isoformat(),

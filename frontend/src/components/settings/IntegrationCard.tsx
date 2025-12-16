@@ -6,10 +6,11 @@ interface IntegrationCardProps {
   description: string;
   icon: React.ReactNode;
   isConnected: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
+  isReadOnly?: boolean;
 }
 
-export function IntegrationCard({ name, description, icon, isConnected, onToggle }: IntegrationCardProps) {
+export function IntegrationCard({ name, description, icon, isConnected, onToggle, isReadOnly }: IntegrationCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -22,9 +23,15 @@ export function IntegrationCard({ name, description, icon, isConnected, onToggle
         </div>
       </CardHeader>
       <CardContent>
-        <Button onClick={onToggle} variant={isConnected ? "destructive" : "default"} className="w-full">
-          {isConnected ? "Disconnect" : "Connect"}
-        </Button>
+        {isReadOnly ? (
+            <Button variant="secondary" className="w-full" disabled>
+                {isConnected ? "Integrated by Default" : "Unavailable"}
+            </Button>
+        ) : (
+            <Button onClick={onToggle} variant={isConnected ? "destructive" : "default"} className="w-full">
+            {isConnected ? "Disconnect" : "Connect"}
+            </Button>
+        )}
       </CardContent>
     </Card>
   );

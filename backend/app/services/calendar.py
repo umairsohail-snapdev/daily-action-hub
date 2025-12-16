@@ -17,13 +17,24 @@ class CalendarService:
         Fetches meetings for the current day from the primary calendar.
         """
         now = datetime.utcnow()
-        # Start of day (00:00:00)
-        time_min = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + 'Z'
-        # End of day (23:59:59)
-        time_max = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat() + 'Z'
+        # Ensure we strictly capture today's window based on UTC for consistency
+        # WIDEN THE SYNC WINDOW TO ±1 DAY UTC
+        # This handles the case where "Today" in the user's local timezone (e.g., UTC+5)
+        # corresponds to "Yesterday" or "Tomorrow" in UTC.
+        # Example: 1 AM in UTC+5 is 8 PM Previous Day in UTC.
+        
+        utc_today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        utc_today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Window: Yesterday 00:00 UTC to Tomorrow 23:59 UTC (3 days total coverage)
+        # This ensures we catch any meeting that could possibly be "Today" anywhere on Earth.
+        time_min = (utc_today_start - timedelta(days=1)).isoformat() + 'Z'
+        time_max = (utc_today_end + timedelta(days=1)).isoformat() + 'Z'
+        
+        print(f"DEBUG: Syncing Google Calendar. Window (UTC): {time_min} to {time_max}")
 
         events_result = self.service.events().list(
-            calendarId='primary', 
+            calendarId='primary',
             timeMin=time_min, 
             timeMax=time_max,
             singleEvents=True,
@@ -31,6 +42,7 @@ class CalendarService:
         ).execute()
         
         events = events_result.get('items', [])
+        print(f"DEBUG: Fetched {len(events)} raw events from Google.")
         meetings = []
 
         for event in events:
@@ -79,5 +91,6 @@ class CalendarService:
                 user_id=0 # Placeholder, needs to be set by the caller
             )
             meetings.append(meeting)
-
+            
+        print(f"DEBUG: Parsed {len(meetings)} valid meetings.")
         return meetings

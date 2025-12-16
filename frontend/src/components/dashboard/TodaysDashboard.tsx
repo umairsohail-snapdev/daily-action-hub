@@ -141,6 +141,23 @@ export function TodaysDashboard({ meetings: initialMeetings, onToggleActionItem,
                       onExecuteAction={async (id, action) => {
                           // @ts-ignore - Ensure we return the result from the parent handler
                           const result = await onExecuteAction(id, action);
+                          
+                          // OPTIMISTIC UPDATE:
+                          // If action executed successfully, mark item as completed in local state immediately
+                          // This forces the UI to re-render with the green/completed state without waiting for a full refetch
+                          if (result) {
+                              setMeetings(prev => prev.map(m => {
+                                  if (m.id === meeting.id) {
+                                      return {
+                                          ...m,
+                                          actionItems: m.actionItems.map(ai =>
+                                              ai.id === id ? { ...ai, isCompleted: true } : ai
+                                          )
+                                      };
+                                  }
+                                  return m;
+                              }));
+                          }
                           return result;
                       }}
                       onGenerateSummary={() => setSelectedMeeting(meeting)}
@@ -161,6 +178,21 @@ export function TodaysDashboard({ meetings: initialMeetings, onToggleActionItem,
                           onExecuteAction={async (id, action) => {
                               // @ts-ignore - Ensure we return the result from the parent handler
                               const result = await onExecuteAction(id, action);
+                              
+                              // OPTIMISTIC UPDATE for offline meetings too
+                              if (result) {
+                                  setMeetings(prev => prev.map(m => {
+                                      if (m.id === meeting.id) {
+                                          return {
+                                              ...m,
+                                              actionItems: m.actionItems.map(ai =>
+                                                  ai.id === id ? { ...ai, isCompleted: true } : ai
+                                              )
+                                          };
+                                      }
+                                      return m;
+                                  }));
+                              }
                               return result;
                           }}
                           onGenerateSummary={() => setSelectedMeeting(meeting)}
