@@ -10,7 +10,7 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const API_BASE_URL = "http://localhost:8000";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
   useEffect(() => {
     // Handle URL parameters (backend code flow - future proofing)
