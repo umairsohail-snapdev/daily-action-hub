@@ -27,10 +27,6 @@ class SettingsUpdateRequest(BaseModel):
     integrations: dict
     notifications: dict
 
-class NotionSettingsRequest(BaseModel):
-    api_key: str
-    database_id: str
- 
 # --- Endpoints ---
 
 @router.post("/google", response_model=Token)
@@ -135,28 +131,3 @@ def update_user_settings(
     session.commit()
     
     return {"message": "Settings updated successfully"}
-
-# --- Notion Developer API Endpoints ---
-
-@router.post("/notion/save_credentials")
-def save_notion_credentials(
-    request: NotionSettingsRequest,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
-    """
-    Saves Notion developer API key and database ID for a user.
-    """
-    print(f"Saving Notion credentials for user {current_user.id}: API Key: {request.api_key}, DB ID: {request.database_id}")
-    current_user.notion_api_key = request.api_key
-    current_user.notion_database_id = request.database_id
-    
-    # Update integrations config to show Notion as connected
-    integrations = json.loads(current_user.integrations_config or "{}")
-    integrations["Notion"] = True # Changed from "Notion / Granola"
-    current_user.integrations_config = json.dumps(integrations)
-    
-    session.add(current_user)
-    session.commit()
-    
-    return {"message": "Notion credentials saved successfully"}

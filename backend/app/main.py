@@ -9,6 +9,7 @@ from .services.scheduler import start_scheduler, stop_scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize the database
+    print(f"--- CONFIG: FRONTEND_URL is set to: {settings.FRONTEND_URL} ---")
     init_db()
     # Startup: Initialize the scheduler
     start_scheduler()
@@ -19,8 +20,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Daily Action Hub API", lifespan=lifespan)
 
 # Configure CORS to allow requests from the frontend
-# Allowing all origins for development convenience
-origins = ["*"]
+origins = [
+    "http://localhost:5137",
+    "http://localhost:3000",
+    "https://daily-action-frontend.onrender.com",
+    settings.FRONTEND_URL,
+]
 
 app.add_middleware(
     CORSMiddleware,
