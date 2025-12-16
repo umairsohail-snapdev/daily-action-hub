@@ -73,7 +73,9 @@ const Login = () => {
   }, [searchParams, navigate]);
 
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE_URL}/auth/login`;
+    // Remove trailing slash if present to avoid double slashes
+    const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    window.location.href = `${baseUrl}/auth/login`;
   };
 
   return (
