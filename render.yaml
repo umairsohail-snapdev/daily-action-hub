@@ -1,0 +1,52 @@
+databases:
+  - name: daily-action-hub-db
+    databaseName: daily_action_hub
+    user: daily_action_hub_user
+
+services:
+  # Backend Service
+  - type: web
+    name: daily-action-hub-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: daily-action-hub-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        fromService:
+          type: static
+          name: daily-action-hub-frontend
+          property: url
+      # The following keys must be set in the Render Dashboard
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NOTION_API_KEY
+        sync: false
+      - key: NOTION_DATABASE_ID
+        sync: false
+      - key: GRANOLA_API_KEY
+        sync: false
+
+  # Frontend Static Site
+  - type: static
+    name: daily-action-hub-frontend
+    env: node
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: daily-action-hub-backend
+          property: url

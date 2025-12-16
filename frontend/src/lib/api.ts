@@ -1,6 +1,6 @@
 import { DailyDashboard, Meeting, ActionItem, ActionType } from "@/types";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 // Helper to get the token (mock implementation for now, replace with actual auth logic)
 const getAppToken = () => {
